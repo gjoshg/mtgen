@@ -3,8 +3,113 @@
         <title>Updater</title>
     </head>
     <body>
+        <!--
+        html objects: 
+        # start simulation button
+        # pause simulation button
+        # set simulation time textbox
+        # set simulation time button
+        # file upload button
+        # error label
+        table
+            - time of simulated occurence
+            - mgrs of simulated occurence
+            - summary of event
+        -->
+
+        <form>
+            <input type="button" id ="startButton" onclick="toggleSimRunning()" value="Start Simulation"><br>
+            Elapsed Simulation Time: <span id="elapsedSimulationTimeText"></span><br>
+            <input id="elapsedSimulationTime" type="number" value="0" min="0" step="1"><input type="button" id="setElapsedSimulationTime" value="Set Elapsed Simulation Time"><br>
+            <input id="fileInput" type="file" accept=".csv"><br>
+            <div id="errorDiv" class="error">Example Error</div>
+            <div id="tableDiv" class="tableHolder">
+            </div>
+        </form>
+
         <script>
-            let test = 1;
+            
+            let simRunning = false;
+            let simTime = 0;
+            let events = [];
+            let startButtonRef, elapsedSimulationTimeRef, elapsedSimulationTimeValueRef, errorRef, tableRef;
+
+            function updateGUI(){
+                startButtonRef.value = simRunning ? "Pause Simulation" : "Start Simulation";
+                elapsedSimulationTimeRef.innerHTML = formatMTime(simTime);
+            }
+
+            // time in seconds --> HH:MM:SS
+            function formatMTime(time){
+                let hours = Math.floor(time/3600).toString().padStart(2, "0");
+                let minutes = Math.floor(time/60).toString().padStart(2, "0");
+                let seconds = (time%60).toString().padStart(2, "0");
+                return `${hours}:${minutes}:${seconds}`;
+            }
+
+            function checkForEventRelease(){
+
+            }
+
+            function generateTable(){
+
+            }
+
+            function setSimTime(){
+                
+            }
+
+            function onFileUpload(){
+
+            }
+
+            function readFile(){
+
+            }
+
+            class Event{
+                constructor(simulationTime, dateTime, mgrs, subject){
+                    this.simulationTime = simulationTime;
+                    this.dateTime = dateTime;
+                    this.mgrs = mgrs;
+                    this.subject = subject;
+                }
+            }
+
+            // COMPLETED SCRIPT COMPONENTS BELOW HERE 
+
+            function getReferences(){
+                startButtonRef = document.getElementById("startButton");
+                elapsedSimulationTimeRef = document.getElementById("elapsedSimulationTimeText");
+                elapsedSimulationTimeValueRef = document.getElementById("elapsedSimulationTime");
+                errorRef = document.getElementById("errorDiv");
+                tableRef = document.getElementById("tableDiv");
+            }
+
+            function toggleSimRunning(){
+                simRunning = !simRunning;
+                updateGUI();
+            }
+
+            function main(){
+                getReferences();
+                update();
+                setInterval(update, 1000);
+            }
+
+            function update(){
+                updateGUI();
+                if(!simRunning) return;
+                incrementSimTime();
+                checkForEventRelease();
+            }
+
+            function incrementSimTime(){
+                simTime += 1;
+            }
+
+            main();
+
         </script>
     </body>
 </html>
