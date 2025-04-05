@@ -1,6 +1,48 @@
 <html>
     <head>
         <title>Updater</title>
+        <style>
+            /* thanks chatgpt for the css */
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f5f7fa;
+                color: #333;
+                padding: 40px;
+                line-height: 1.6;
+              }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-family: Arial, sans-serif;
+                margin: 20px 0;
+                font-size: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+              }
+              
+              thead {
+                background-color: #f4f4f4;
+              }
+              
+              th, td {
+                text-align: left;
+                padding: 12px 15px;
+                border-bottom: 1px solid #ddd;
+              }
+              
+              tr:hover {
+                background-color: #f9f9f9;
+              }
+              
+              th {
+                font-weight: bold;
+                color: #333;
+              }
+              
+              tbody tr:nth-child(even) {
+                background-color: #fafafa;
+              }
+        </style>
     </head>
     <body>
         <!--
@@ -18,71 +60,118 @@
         -->
 
         <form>
-            <input type="button" id ="startButton" onclick="toggleSimRunning()" value="Start Simulation"><br>
+            <h2>Message Traffic Generator</h2>
+            <input id="fileInput" type="file" accept=".csv"><br><br>
+            <input type="button" id ="startButton" onclick="toggleSimRunning()" value="Start Simulation"><br><br>
             Elapsed Simulation Time: <span id="elapsedSimulationTimeText"></span><br>
-            <input id="elapsedSimulationTimeHour" type="number" value="0" min="0" step="1" style="width:50px">:<input id="elapsedSimulationTimeMinute" type="number" value="0" min="0" step="1"style="width:50px">:<input id="elapsedSimulationTimeSecond" type="number" value="0" min="0" step="1"style="width:50px"><input type="button" id="setElapsedSimulationTime" value="Set Elapsed Simulation Time"><br>
-            <input id="fileInput" type="file" accept=".csv"><br>
-            <div id="errorDiv" class="error">Example Error</div>
-            <div id="tableDiv" class="tableHolder">
-            </div>
+            <input id="elapsedSimulationTimeHour" type="number" placeholder="HH" min="0" step="1" style="width:50px">:<input id="elapsedSimulationTimeMinute" type="number" placeholder="MM" min="0" step="1"style="width:50px">:<input id="elapsedSimulationTimeSecond" type="number" placeholder="SS" min="0" step="1"style="width:50px"><input type="button" id="setElapsedSimulationTime" value="Set Elapsed Simulation Time" onclick="setSimTime()"><br><br>
+            <div id="errorDiv" class="error"></div><br>            
+            <div id="tableDiv" class="tableHolder"></div>
         </form>
 
         <script>
             
             let simRunning = false;
+            let startDateTime, lastDateTime;
             let simTime = 0;
-            let events = [];
+            let events = null;
+            let displayEvents = [];
             let errorString = "";
             let startButtonRef, fileInputRef, elapsedSimulationTimeRef, elapsedSimulationTimeValueHRef, elapsedSimulationTimeValueMRef, elapsedSimulationTimeValueSRef, errorRef, tableRef;
 
+            function drawDisplayEventsTable(){
+                tableRef.innerHTML = "";
+                let tableHTML = "<table style='width: 50%'>";
+                tableHTML += `
+                    <tr>
+                        <th style='width:10%'>DTG</th><th style='width:10%'>MGRS</th><th style='width:15%'>Header</th><th style='width:15%'>Attachment</th>
+                    </tr>
+                `;
+                for(let event of displayEvents){
+                    tableHTML += `
+                        <tr>
+                            <td>${event.dateTime}</td><td>${event.mgrs}</td><td>${event.subject}</td><td>${event.attachment ? event.generateAttachmentHTMLLink() : "N/A"}</td>
+                        </tr>
+                    `;
+                }
+                tableHTML += "</table>";
+                tableRef.innerHTML = tableHTML;
+            }
+
             function updateGUI(){
                 startButtonRef.value = simRunning ? "Pause Simulation" : "Start Simulation";
-                errorRef.innerHTML = errorString === "" ? "No Errors Detected" : errorString;
+                errorRef.innerHTML = (errorString === "" ? "No Errors Detected" : errorString);
                 elapsedSimulationTimeRef.innerHTML = formatMTime(simTime);
+                drawDisplayEventsTable();
+            }
 
+            function drawErrorMessage(){
+                errorRef.innerHTML = errorString;
             }
 
             function checkForEventRelease(){
-
+                displayEvents = [];
+                for(event of events){
+                    if(event.simulationTime === undefined)
+                        continue;
+                    if(event.simulationTime <= simTime/(1000*60) && !displayEvents.includes(event))
+                        displayEvents = [event, ...displayEvents];
+                }
             }
 
             function generateTable(data){
-                // insert rolon's deconstruction algorithm
-                console.log(data.replaceAll("\n", "").replaceAll("\r", "").split(","));
+                events = [];
+                data = data.replaceAll("\n", "").replaceAll("\r", "").split(",");
+                for(let i = 0; i < data.length-1; i+=5)
+                    events.push(new SimEvent(data[i], data[i+1], data[i+2], data[i+3], data[i+4]));
+                errorString = "";
             }
 
             function setSimTime(){
-                
+                let hVal = Number(elapsedSimulationTimeValueHRef.value);
+                let mVal = Number(elapsedSimulationTimeValueMRef.value);
+                let sVal = Number(elapsedSimulationTimeValueSRef.value);
+                simTime = (hVal * 3600 + mVal * 60 + sVal) * 1000;
             }
 
-            function onFileUpload(event){
-                let file = event.target.files[0];
-                console.log(file);
-                let reader = new FileReader();
-                reader.onload = () => {generateTable(reader.result)};
-                reader.readAsText(file);
-            }
-
-            function readFile(){
-
-            }
-
-            class Event{
-                constructor(simulationTime, dateTime, mgrs, subject){
+            class SimEvent{
+                constructor(simulationTime, dateTime, mgrs, subject,attachment){
                     this.simulationTime = simulationTime;
                     this.dateTime = dateTime;
                     this.mgrs = mgrs;
                     this.subject = subject;
+                    this.attachment = attachment;
+                }
+
+                generateAttachmentHTMLLink(){
+                    let attachmentString = String(this.attachment);
+                    if(attachmentString.includes("|")){
+                        let attachments = attachmentString.split("|");
+                        let string = "";
+                        for(let attachment of attachments){
+                            string += `<a href="${attachment}" target="_blank">${attachment}</a><br>`
+                        }
+                        return string;
+                    } else
+                        return `<a href="${this.attachment}" target="_blank">${this.attachment}</a>`
                 }
             }
 
             // COMPLETED SCRIPT COMPONENTS BELOW HERE 
 
-            // time in seconds --> HH:MM:SS
+            function onFileUpload(event){
+                let file = event.target.files[0];
+                let reader = new FileReader();
+                reader.onload = () => {generateTable(reader.result)};
+                reader.readAsText(file);
+            }
+
+            // time in milliseconds --> HH:MM:SS
             function formatMTime(time){
-                let hours = Math.floor(time/3600).toString().padStart(2, "0");
-                let minutes = Math.floor(time/60).toString().padStart(2, "0");
-                let seconds = (time%60).toString().padStart(2, "0");
+                time /= 1000;
+                let hours = (Math.floor(time/3600)%60).toString().padStart(2, "0");
+                let minutes = (Math.floor(time/60)%60).toString().padStart(2, "0");
+                let seconds = Math.round((time%60)).toString().padStart(2, "0");
                 return `${hours}:${minutes}:${seconds}`;
             }
 
@@ -98,26 +187,39 @@
             }
 
             function toggleSimRunning(){
+                if(events === null){
+                    errorString = "Select a CSV containing message traffic to get started!";
+                    updateGUI();
+                    return;
+                }
                 simRunning = !simRunning;
+                if(simRunning)
+                    lastDateTime = Date.now();
                 updateGUI();
             }
 
             function main(){
                 getReferences();
                 fileInput.addEventListener("change", onFileUpload);
+                lastDateTime = Date.now();
                 update();
                 setInterval(update, 1000);
             }
 
             function update(){
-                updateGUI();
-                if(!simRunning) return;
+                if(!simRunning){ 
+                    updateGUI();
+                    return;
+                }
                 incrementSimTime();
                 checkForEventRelease();
+                updateGUI();
             }
 
             function incrementSimTime(){
-                simTime += 1;
+                let current = Date.now();
+                simTime += current - lastDateTime;
+                lastDateTime = current;
             }
 
             main();
